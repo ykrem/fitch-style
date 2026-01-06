@@ -1,4 +1,4 @@
-#import "frameline.typ": *
+#import "framing.typ": *
 #import "formula.typ": * // constrain later
 
 // returns an array of each formula's array of frame lines; core logic of the library.
@@ -47,84 +47,74 @@
 
 }
 
+// (internal use) returns an array of the ranges of the assumptions' indices in the proof
+#let assumption-ranges(lines) = {
 
-// depreciated - will be removed asap
-#let chart-old(fl-model, assumption-mode, lines) = context {
+  let starts = if lines.first() == start {()} else {(0,)}
+  let assumes = ()
+  let equation-counter = 0
 
-  let arr = frame-as-array(lines, fl-model)
-  let formulas = lines.filter(x => x not in utils)
-  let merged = array.zip(arr, formulas)
+  for line in lines {
 
-  if assumption-mode == "dynamic" {
-    for i in range(merged.len()) {
-      merged.at(i).at(0).last().insert("assume-length", measure(merged.at(i).at(1).equation).width + 1em) // cursed
-    }
-  } // LFGGGGG
+    if line == start {starts.push(equation-counter)}
+    else if line == assume {assumes.push(equation-counter)}
+    else if line not in utils {equation-counter += 1}
 
-  // What was the problem? Easy - I ran a for (x,y) in merged and modified x - but it doesn't refer to the value that is x in merged!! It has to be directly, sadly through indexation.
-
-  // Another two possible implementations: 
-  //  - throwing the same line in the same conditional in the loop below
-  //  - defining is-dynamic = 1 if dynamic, 0 if fixed, then in each iteration of the loop set the current fl-row.last... to is-dynamic * measure... + 1-is-dynamic * fl-model assumelength... quite ugly, and will require the loop the use 
-
-  // oddly enough, using merged.map(...) doesn't work!
-
-  else if assumption-mode == "widest" {
-    let widest = calc.max(..formulas.map(it => measure(it.equation).width))
-    for i in range(merged.len()) {
-      merged.at(i).at(0).last().insert("assume-length", widest + 1em)
-    }
   }
+
+  return array.zip(starts,assumes)
   
 
-  let out = ()
-
-  for (fl-row, formula) in merged {
-
-    let move-left = 0em
-    if fl-row.last().is-assume {move-left = fl-row.last().assume-length}
-    let new-line = stack(
-      dir: ltr,
-      spacing: 1em,
-      ..fl-row.map(x => align(left+bottom, fl-display(x))), // won't align in fl-display itself for some reason
-      align(bottom, move(dx: -(move-left + .5em), formula.equation))
-      )
-    out.push(new-line)
-
-  }
-
-  return stack(
-    dir: ttb,
-    ..out
-  )
+  // note: I think it only works if an assume comes after every start, which is syntactically required, but won't always be the case, such as while writing. Requires input verification or handling or the qed idea or a logic that makes it work in more cases. 
 
 }
 
 // constructs the chart
 #let chart(fl-model, assumption-mode, lines) = context {
 
+
+
   let arr = frame-as-array(lines, fl-model)
   let formulas = lines.filter(x => x not in utils)
-  let merged = array.zip(arr, formulas)
-
+  
   if assumption-mode == "dynamic" {
-    for i in range(merged.len()) {
-      merged.at(i).at(0).last().insert("assume-length", measure(merged.at(i).at(1).equation).width + 1em) // cursed, couldn't find another way
+    
+  let assumption-ranges = assumption-ranges(lines)
+  let assumption-chunks = assumption-ranges.map(it => 
+  formulas.slice(it.first(), it.last()))
+
+  let widest-per-range = assumption-chunks.map(it =>
+    calc.max(..it.map(x => 
+       measure(x.equation).width)
+       )
+     ).rev() // reversing allows to use .pop() concisely
+
+    for (_, to) in assumption-ranges {
+      arr.at(to - 1).last().insert("assume-length", widest-per-range.pop() + 1em)
+    }
+
+  }
+
+  else if assumption-mode == "dynamic-single" {
+    for i in range(arr.len()) {
+      arr.at(i).last().insert("assume-length", measure(formulas.at(i).equation).width + 1em) // cursed, couldn't find another way
     }
   }
+  
   else if assumption-mode == "widest" {
     let widest = calc.max(..formulas.map(it => measure(it.equation).width))
-    for i in range(merged.len()) {
-      merged.at(i).at(0).last().insert("assume-length", widest + 1em)
+    for i in range(arr.len()) {
+      arr.at(i).last().insert("assume-length", widest + 1em)
     }
   }
 
+  let merged = array.zip(arr, formulas)
   let table = ()
 
   for (fl-row, formula) in merged {
 
     let partition = fl-row.map(it => fl-model.thick + .75em) // length partition of the row
-    partition.last() = .375em // last frameline in row
+    partition.last() = .375em // last framing in row
     partition.push(calc.max(
       measure(formula.equation).width,
       if fl-row.last().is-assume {measure(h(fl-row.last().assume-length)).width}
