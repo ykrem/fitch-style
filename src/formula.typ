@@ -74,7 +74,11 @@
     }
 
     else { // is a visible formula
-      formulas.push(parse-single(line, numbering(indexation, line-number)))
+      formulas.push(
+        parse-single(line,
+          eval(numbering(indexation, line-number), mode: "math")
+        )
+      )
       line-number += 1
     }
 

@@ -56,19 +56,19 @@ end,
   ($n$, $(p or q)$, $or I quad m$)
 ))
 
-#let or-elim = proof((
-  ($a$, $(p or q)$, $$),
+#let or-elim = proof(indexation: "a", (
+  $(p or q)$,
   start,
-    ($b$, $p$, $$),
+    $p$,
     assume,
-    ($c$, $r$, $$),
+    $r$,
   end,
   start,
-    ($d$, $q$, $$),
+    $q$,
     assume,
-    ($e$, $r$, $$),
+    $r$,
   end,
-  ($f$, $r$, $or E quad a, b-c, d-e$)
+  ($r$, $or E quad a, b-c, d-e$)
 ))
 
 #stack(
